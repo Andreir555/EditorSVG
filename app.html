@@ -1,78 +1,53 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Editor SVG</title>
-    <style type="text/css">
-        html, body {
-            width: 100%;
-            height: 100%;
-            margin: 0px;
-            padding: 0px;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced SVG Editor</title>
+    <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+    <h1>Editor SVG</h1>
+    <div id="toolbar">
+        <label>
+            Mode:
+            <button id="toggleMode">Draw</button>
+        </label>
+        <label>
+            Element:
+            <select id="shape" disabled>
+                <option value="rect">Rectangle</option>
+                <option value="ellipse">Ellipse</option>
+                <option value="line">Line</option>
+            </select>
+        </label>
+        <label>Stroke Color: <input type="color" id="strokeColor" value="#000000" disabled></label>
+        <label>Stroke Width: <input type="number" id="strokeWidth" value="2" min="1" disabled></label>
+        <label>Fill Color: <input type="color" id="fillColor" value="#cccccc" disabled></label>
+        <button id="delete">Delete Selected</button>
+        <button id="export">Export as JPEG</button>
+    </div>
+    <svg id="editor">
+        <g id="desen"></g>
+        <rect id="selectie"></rect>
+    </svg>
 
-        h1 {
-            width: 100%;
-            background-color: lightblue;
-            margin: 0px;
-            padding: 8px;
-        }
-
-        svg {
-            width: 100%;
-            height: 100%;
-            margin: 0px;
-            padding: 0px;
-            overflow: hidden;
-            background-color: #eaeaea;
-            cursor: crosshair;
-        }
-
-            svg rect, svg line, svg ellipse {
-                fill: gray;
-                fill-opacity: 0.3;
-                stroke: navy;
-                stroke-opacity: 0.8;
-            }
-
-            svg #selectie {
-                fill: transparent;
-                stroke: green;
-                stroke-width: 2;
-                stroke-dasharray: 5, 3;
-                display: none;
-            }
-
-            svg .highlight {
-                stroke: red !important;
-                stroke-width: 3 !important;
-                fill-opacity: 0.5 !important;
-            }
-
-        #toolbar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            padding: 10px;
-            background: white;
-            border: 1px solid #ccc;
-        }
-
-            #toolbar select, #toolbar input {
-                margin: 5px;
-            }
-    </style>
-    <script type="text/javascript">
-        let editor, desen, selectie, selectedElement = null;
+    <script>
+        let editor, desen, selectie;
         let mx = 0, my = 0, x0 = 0, y0 = 0;
-        let drawingElement = null;
-        let selectedTool = 'rect'; // rect, line, ellipse
-        let strokeColor = 'navy';
-        let fillColor = 'gray';
-        let strokeWidth = 2;
-        let isDragging = false;
-        let mode = 'draw'; // draw or select
+        let selectedElement = null, mode = "draw";
+        let selectedObject;
+
+        function toggleMode() {
+            mode = mode === "draw" ? "select" : "draw";
+            const isDrawMode = mode === "draw";
+            document.getElementById("shape").disabled = !isDrawMode;
+            document.getElementById("strokeColor").disabled = !isDrawMode;
+            document.getElementById("strokeWidth").disabled = !isDrawMode;
+            document.getElementById("fillColor").disabled = !isDrawMode;
+            document.getElementById("toggleMode").textContent = isDrawMode ? "Draw" : "Select";
+            deselectElement();
+        }
 
         function setareCoordonate(elem, x1, y1, x2, y2) {
             elem.setAttribute('x', Math.min(x1, x2));
@@ -82,179 +57,162 @@
         }
 
         function editor_mousedown(e) {
-            if (mode === 'select') {
-                if (selectedElement) {
-                    isDragging = true;
+            if (mode === "draw") {
+                const shapeType = document.getElementById("shape").value;
+                const strokeColor = document.getElementById("strokeColor").value;
+                const strokeWidth = document.getElementById("strokeWidth").value;
+                const fillColor = document.getElementById("fillColor").value;
+
+                if (shapeType === "line") {
+                    selectedElement = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    selectedElement.setAttribute('x1', mx);
+                    selectedElement.setAttribute('y1', my);
+                    selectedElement.setAttribute('x2', mx);
+                    selectedElement.setAttribute('y2', my);
+                } else if (shapeType === "ellipse") {
+                    selectedElement = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                    selectedElement.setAttribute('cx', mx);
+                    selectedElement.setAttribute('cy', my);
+                    selectedElement.setAttribute('rx', 0);
+                    selectedElement.setAttribute('ry', 0);
+                } else {
+                    selectedElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    setareCoordonate(selectedElement, mx, my, mx, my);
+                }
+
+                selectedElement.setAttribute('stroke', strokeColor);
+                selectedElement.setAttribute('stroke-width', strokeWidth);
+                selectedElement.setAttribute('fill', fillColor);
+
+                desen.append(selectedElement);
+                x0 = mx;
+                y0 = my;
+            } else if (mode === "select") {
+                const target = e.target;
+                if (target !== editor && target !== desen) {
+                    
+                    selectedElement = target;
+
+                    highlightElement(selectedElement);
                     x0 = mx;
                     y0 = my;
                 }
-                return;
+                if(selectedObject)
+                    selectedObject.classList.remove('highlightRetain');
             }
-
-            x0 = mx; y0 = my;
-
-            if (selectedTool === 'rect') {
-                drawingElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                drawingElement.setAttribute('fill', fillColor);
-                drawingElement.setAttribute('stroke', strokeColor);
-                drawingElement.setAttribute('stroke-width', strokeWidth);
-                setareCoordonate(drawingElement, x0, y0, mx, my);
-                desen.append(drawingElement);
-            } else if (selectedTool === 'line') {
-                drawingElement = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                drawingElement.setAttribute('x1', x0);
-                drawingElement.setAttribute('y1', y0);
-                drawingElement.setAttribute('x2', mx);
-                drawingElement.setAttribute('y2', my);
-                drawingElement.setAttribute('stroke', strokeColor);
-                drawingElement.setAttribute('stroke-width', strokeWidth);
-                desen.append(drawingElement);
-            } else if (selectedTool === 'ellipse') {
-                drawingElement = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-                drawingElement.setAttribute('fill', fillColor);
-                drawingElement.setAttribute('stroke', strokeColor);
-                drawingElement.setAttribute('stroke-width', strokeWidth);
-                desen.append(drawingElement);
-            }
-        }
-
-        function editor_mouseup(e) {
-            drawingElement = null;
-            isDragging = false;
         }
 
         function editor_mousemove(e) {
             mx = Math.round(e.x - editor.getBoundingClientRect().x);
             my = Math.round(e.y - editor.getBoundingClientRect().y);
 
-            if (isDragging && selectedElement) {
-                let dx = mx - x0;
-                let dy = my - y0;
+            if (mode === "draw" && selectedElement) {
+                if (selectedElement.tagName === "line") {
+                    selectedElement.setAttribute('x2', mx);
+                    selectedElement.setAttribute('y2', my);
+                } else if (selectedElement.tagName === "ellipse") {
+                    selectedElement.setAttribute('rx', Math.abs(mx - x0));
+                    selectedElement.setAttribute('ry', Math.abs(my - y0));
+                    selectedElement.setAttribute('cx', x0);
+                    selectedElement.setAttribute('cy', y0);
+                } else {
+                    setareCoordonate(selectedElement, x0, y0, mx, my);
+                }
+            } else if (mode === "select" && selectedElement) {
+                const dx = mx - x0;
+                const dy = my - y0;
+                if (selectedElement.tagName === "line") {
+                    selectedElement.setAttribute('x1', parseFloat(selectedElement.getAttribute('x1')) + dx);
+                    selectedElement.setAttribute('y1', parseFloat(selectedElement.getAttribute('y1')) + dy);
+                    selectedElement.setAttribute('x2', parseFloat(selectedElement.getAttribute('x2')) + dx);
+                    selectedElement.setAttribute('y2', parseFloat(selectedElement.getAttribute('y2')) + dy);
+                } else if (selectedElement.tagName === "ellipse") {
+                    selectedElement.setAttribute('cx', parseFloat(selectedElement.getAttribute('cx')) + dx);
+                    selectedElement.setAttribute('cy', parseFloat(selectedElement.getAttribute('cy')) + dy);
+                } else {
+                    selectedElement.setAttribute('x', parseFloat(selectedElement.getAttribute('x')) + dx);
+                    selectedElement.setAttribute('y', parseFloat(selectedElement.getAttribute('y')) + dy);
+                }
                 x0 = mx;
                 y0 = my;
-                moveElement(selectedElement, dx, dy);
-                return;
-            }
-
-            if (drawingElement) {
-                if (selectedTool === 'rect') {
-                    setareCoordonate(drawingElement, x0, y0, mx, my);
-                } else if (selectedTool === 'line') {
-                    drawingElement.setAttribute('x2', mx);
-                    drawingElement.setAttribute('y2', my);
-                } else if (selectedTool === 'ellipse') {
-                    let rx = Math.abs(mx - x0) / 2;
-                    let ry = Math.abs(my - y0) / 2;
-                    drawingElement.setAttribute('cx', (x0 + mx) / 2);
-                    drawingElement.setAttribute('cy', (y0 + my) / 2);
-                    drawingElement.setAttribute('rx', rx);
-                    drawingElement.setAttribute('ry', ry);
-                }
             }
         }
 
-        function changeTool(tool) {
-            selectedTool = tool;
-        }
-
-        function changeStrokeColor(color) {
-            strokeColor = color;
-        }
-
-        function changeFillColor(color) {
-            fillColor = color;
-        }
-
-        function changeStrokeWidth(width) {
-            strokeWidth = width;
-        }
-
-        function toggleMode() {
-            mode = (mode === 'draw') ? 'select' : 'draw';
-            document.getElementById('modeButton').textContent = (mode === 'draw') ? 'Switch to Select/Move' : 'Switch to Draw';
-        }
-
-        function selectElement(e) {
-            if (mode === 'draw') return;
-
-            if (e.target.tagName !== 'svg') {
-                if (selectedElement) {
-                    selectedElement.classList.remove('highlight');
-                }
-                selectedElement = e.target;
-                selectedElement.classList.add('highlight');
-            } else {
-                if (selectedElement) {
-                    selectedElement.classList.remove('highlight');
-                }
-                selectedElement = null;
+        function editor_mouseup(e) {
+            
+            if (mode === 'select' && selectedElement) {
+                retainSelection(selectedElement);
             }
+            deselectElement(selectedElement);
         }
 
-        function moveElement(elem, dx, dy) {
-            if (elem.tagName === 'rect' || elem.tagName === 'ellipse') {
-                let x = parseFloat(elem.getAttribute('x')) || 0;
-                let y = parseFloat(elem.getAttribute('y')) || 0;
-                elem.setAttribute('x', x + dx);
-                elem.setAttribute('y', y + dy);
-            } else if (elem.tagName === 'line') {
-                let x1 = parseFloat(elem.getAttribute('x1')) || 0;
-                let y1 = parseFloat(elem.getAttribute('y1')) || 0;
-                let x2 = parseFloat(elem.getAttribute('x2')) || 0;
-                let y2 = parseFloat(elem.getAttribute('y2')) || 0;
-                elem.setAttribute('x1', x1 + dx);
-                elem.setAttribute('y1', y1 + dy);
-                elem.setAttribute('x2', x2 + dx);
-                elem.setAttribute('y2', y2 + dy);
-            }
+        function highlightElement(element) {
+            element.classList.add('highlight');
         }
 
-        function deleteElement() {
+        function retainSelection(element) {
+            element.classList.add('highlightRetain');
+            selectedObject = element;
+        }
+        function removeRetainSelection(element) {
+            if(selectedElement)
+                selectedElement.classList.remove('highlightRetain');
+        }
+        function deselectElement(element) {
             if (selectedElement) {
-                desen.removeChild(selectedElement);
+                selectedElement.classList.remove('highlight');
                 selectedElement = null;
             }
+        }
+
+        function deleteSelected() {
+            if (selectedObject && selectedObject.classList.contains("highlightRetain")) {
+                selectedObject.remove();
+                selectedObject = null;
+            }
+        }
+
+        function exportAsJPEG() {
+            const svg = document.getElementById("editor");
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+
+            const image = new Image();
+            image.onload = function () {
+                canvas.width = svg.clientWidth;
+                canvas.height = svg.clientHeight;
+                ctx.drawImage(image, 0, 0);
+
+                const jpegData = canvas.toDataURL("image/jpeg", 1.0);
+                const link = document.createElement("a");
+                link.href = jpegData;
+                link.download = "drawing.jpeg";
+                link.click();
+
+                URL.revokeObjectURL(url);
+            };
+            image.src = url;
         }
 
         function aplicatie() {
-            editor = document.querySelector("#editor");
-            desen = document.querySelector("#desen");
+            editor = document.getElementById("editor");
+            desen = document.getElementById("desen");
+            selectie = document.getElementById("selectie");
 
             editor.addEventListener("mousedown", editor_mousedown);
-            editor.addEventListener("mouseup", editor_mouseup);
             editor.addEventListener("mousemove", editor_mousemove);
-            editor.addEventListener("click", selectElement);
+            editor.addEventListener("mouseup", editor_mouseup);
+
+            document.getElementById("delete").addEventListener("click", deleteSelected);
+            document.getElementById("toggleMode").addEventListener("click", toggleMode);
+            document.getElementById("export").addEventListener("click", exportAsJPEG);
         }
 
         document.addEventListener("DOMContentLoaded", aplicatie);
     </script>
-</head>
-<body>
-    <h1>Editor SVG</h1>
-    <div id="toolbar">
-        <label for="tool">Tool:</label>
-        <select id="tool" onchange="changeTool(this.value)">
-            <option value="rect">Rectangle</option>
-            <option value="line">Line</option>
-            <option value="ellipse">Ellipse</option>
-        </select>
-
-        <label for="strokeColor">Stroke Color:</label>
-        <input id="strokeColor" type="color" value="#000080" onchange="changeStrokeColor(this.value)">
-
-        <label for="fillColor">Fill Color:</label>
-        <input id="fillColor" type="color" value="#808080" onchange="changeFillColor(this.value)">
-
-        <label for="strokeWidth">Stroke Width:</label>
-        <input id="strokeWidth" type="number" value="2" min="1" max="10" onchange="changeStrokeWidth(this.value)">
-
-        <button id="modeButton" onclick="toggleMode()">Switch to Select/Move</button>
-        <button onclick="deleteElement()">Delete Selected</button>
-    </div>
-
-    <svg id="editor">
-        <g id="desen"></g>
-        <rect id="selectie" x="0" y="0" width="0" height="0" fill="none" stroke="green" stroke-width="2" stroke-dasharray="5,5" display="none"></rect>
-    </svg>
 </body>
 </html>
