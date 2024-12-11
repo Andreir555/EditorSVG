@@ -3,35 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced SVG Editor</title>
+    <title>Editor SVG</title>
     <link rel="stylesheet" href="/app.css" />
-</head>
-<body>
-    <h1>Editor SVG</h1>
-    <div id="toolbar">
-        <label>
-            Mode:
-            <button id="toggleMode">Draw</button>
-        </label>
-        <label>
-            Element:
-            <select id="shape" disabled>
-                <option value="rect">Rectangle</option>
-                <option value="ellipse">Ellipse</option>
-                <option value="line">Line</option>
-            </select>
-        </label>
-        <label>Stroke Color: <input type="color" id="strokeColor" value="#000000" disabled></label>
-        <label>Stroke Width: <input type="number" id="strokeWidth" value="2" min="1" disabled></label>
-        <label>Fill Color: <input type="color" id="fillColor" value="#cccccc" disabled></label>
-        <button id="delete">Delete Selected</button>
-        <button id="export">Export as JPEG</button>
-    </div>
-    <svg id="editor">
-        <g id="desen"></g>
-        <rect id="selectie"></rect>
-    </svg>
-
     <script>
         let editor, desen, selectie;
         let mx = 0, my = 0, x0 = 0, y0 = 0;
@@ -42,9 +15,6 @@
             mode = mode === "draw" ? "select" : "draw";
             const isDrawMode = mode === "draw";
             document.getElementById("shape").disabled = !isDrawMode;
-            document.getElementById("strokeColor").disabled = !isDrawMode;
-            document.getElementById("strokeWidth").disabled = !isDrawMode;
-            document.getElementById("fillColor").disabled = !isDrawMode;
             document.getElementById("toggleMode").textContent = isDrawMode ? "Draw" : "Select";
             deselectElement();
         }
@@ -71,10 +41,6 @@
                     selectedElement.setAttribute('y2', my);
                 } else if (shapeType === "ellipse") {
                     selectedElement = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-                    selectedElement.setAttribute('cx', mx);
-                    selectedElement.setAttribute('cy', my);
-                    selectedElement.setAttribute('rx', 0);
-                    selectedElement.setAttribute('ry', 0);
                 } else {
                     selectedElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                     setareCoordonate(selectedElement, mx, my, mx, my);
@@ -90,15 +56,20 @@
             } else if (mode === "select") {
                 const target = e.target;
                 if (target !== editor && target !== desen) {
-                    
+
                     selectedElement = target;
+                    document.getElementById("strokeColor").value = selectedElement.getAttribute("stroke");
+                    document.getElementById("strokeWidth").value = parseInt(selectedElement.getAttribute("stroke-width"), 10);
+                    document.getElementById("fillColor").value = selectedElement.getAttribute("fill");
+
 
                     highlightElement(selectedElement);
                     x0 = mx;
                     y0 = my;
                 }
-                if(selectedObject)
+                if (selectedObject) {
                     selectedObject.classList.remove('highlightRetain');
+                }
             }
         }
 
@@ -111,10 +82,10 @@
                     selectedElement.setAttribute('x2', mx);
                     selectedElement.setAttribute('y2', my);
                 } else if (selectedElement.tagName === "ellipse") {
-                    selectedElement.setAttribute('rx', Math.abs(mx - x0));
-                    selectedElement.setAttribute('ry', Math.abs(my - y0));
-                    selectedElement.setAttribute('cx', x0);
-                    selectedElement.setAttribute('cy', y0);
+                    selectedElement.setAttribute('rx', Math.abs(mx - x0) / 2);
+                    selectedElement.setAttribute('ry', Math.abs(my - y0) / 2);
+                    selectedElement.setAttribute('cx', (x0 + mx) / 2);
+                    selectedElement.setAttribute('cy', (y0 + my) / 2);
                 } else {
                     setareCoordonate(selectedElement, x0, y0, mx, my);
                 }
@@ -139,7 +110,7 @@
         }
 
         function editor_mouseup(e) {
-            
+
             if (mode === 'select' && selectedElement) {
                 retainSelection(selectedElement);
             }
@@ -153,11 +124,9 @@
         function retainSelection(element) {
             element.classList.add('highlightRetain');
             selectedObject = element;
+            
         }
-        function removeRetainSelection(element) {
-            if(selectedElement)
-                selectedElement.classList.remove('highlightRetain');
-        }
+       
         function deselectElement(element) {
             if (selectedElement) {
                 selectedElement.classList.remove('highlight');
@@ -169,6 +138,14 @@
             if (selectedObject && selectedObject.classList.contains("highlightRetain")) {
                 selectedObject.remove();
                 selectedObject = null;
+            }
+        }
+
+        function updateProperties() {
+            if (selectedObject && selectedObject.classList.contains("highlightRetain")) {
+                selectedObject.setAttribute('stroke', document.getElementById("strokeColor").value);
+                selectedObject.setAttribute('stroke-width', document.getElementById("strokeWidth").value);
+                selectedObject.setAttribute('fill', document.getElementById("fillColor").value);
             }
         }
 
@@ -198,6 +175,29 @@
             image.src = url;
         }
 
+        function exportAsSVG() {
+            const svg = document.getElementById("editor");
+
+            if (!svg) {
+                console.error("SVG element with ID 'editor' not found.");
+                return;
+            }
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+
+            // Create a blob for the SVG data
+            const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+
+            // Create a download link
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "drawing.svg";
+            link.click();
+
+            // Revoke the object URL to free memory
+            URL.revokeObjectURL(url);
+        }
         function aplicatie() {
             editor = document.getElementById("editor");
             desen = document.getElementById("desen");
@@ -209,10 +209,40 @@
 
             document.getElementById("delete").addEventListener("click", deleteSelected);
             document.getElementById("toggleMode").addEventListener("click", toggleMode);
-            document.getElementById("export").addEventListener("click", exportAsJPEG);
+            document.getElementById("exportJPEG").addEventListener("click", exportAsJPEG);
+            document.getElementById("exportSVG").addEventListener("click", exportAsSVG);
+
+            setInterval(updateProperties, 100);
         }
 
         document.addEventListener("DOMContentLoaded", aplicatie);
     </script>
+</head>
+<body>
+    <h1>Editor SVG</h1>
+    <div id="toolbar">
+        <label>
+            Mode:
+            <button id="toggleMode">Draw</button>
+        </label>
+        <label>
+            Element:
+            <select id="shape">
+                <option value="rect">Rectangle</option>
+                <option value="ellipse">Ellipse</option>
+                <option value="line">Line</option>
+            </select>
+        </label>
+        <label>Stroke Color: <input type="color" id="strokeColor" value="#000000"></label>
+        <label>Stroke Width: <input type="number" id="strokeWidth" value="2" min="1"></label>
+        <label>Fill Color: <input type="color" id="fillColor" value="#cccccc"></label>
+        <button id="delete">Delete Selected</button>
+        <button id="exportJPEG">Export as JPEG</button>
+        <button id="exportSVG">Export as SVG</button>
+    </div>
+    <svg id="editor">
+        <g id="desen"></g>
+        <rect id="selectie"></rect>
+    </svg>
 </body>
 </html>
