@@ -1,7 +1,5 @@
-# Proiect_Multimedia-EditorSVG
- Proiect Multimedia Mihaila Andrei
+Caracteristici:
 
-Cerinte facute:
 Suport pentru adăugare elemente geometrice de bază (linie, elipsă, dreptunghi)
 Suport pentru selectarea culorii și grosimii liniei pentru adăugare
 Suport pentru selecție și ștergere / modificare elemente existente (proprietăți: culoare și grosime linie, culoare
